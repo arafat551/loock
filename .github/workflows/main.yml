@@ -1,0 +1,62 @@
+name: Déploiement du Projet Laravel
+
+on:
+  push:
+    branches:
+      - main # ou la branche de votre choix
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout du dépôt
+      uses: actions/checkout@v2
+
+    - name: Configuration de PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+
+    - name: Vérification des versions PHP et Composer
+      run: |
+        php -v
+        composer -V
+
+    - name: Installation de Composer
+      run: |
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+        php -r "unlink('composer-setup.php');"
+
+    - name: Nettoyage du cache de Composer
+      run: composer clear-cache
+
+    - name: Suppression du dossier vendor et du fichier composer.lock
+      run: |
+        rm -rf vendor
+        rm composer.lock
+
+    - name: Exécution de composer update
+      run: composer update --prefer-dist -vvv
+
+    - name: Installation des dépendances Composer
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    - name: Installation des dépendances npm
+      run: npm install
+
+    - name: Donner les permissions d'exécution à Mix
+      run: chmod +x node_modules/.bin/mix
+
+    - name: Compilation des assets npm
+      run: npm run production
+
+    - name: Déploiement sur le serveur FTP
+      uses: SamKirkland/FTP-Deploy-Action@4.0.0
+      with:
+        server: ftpupload.net
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./
+        server-dir: /htdocs/laravel/
